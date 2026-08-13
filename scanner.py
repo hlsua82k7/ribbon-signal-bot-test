@@ -48,8 +48,9 @@ def save_state(state):
 
 def process_symbol(market, symbol, timeframe, cfg, state):
     key = f"{market}:{symbol}:{timeframe}"
+    exchange = cfg["markets"][market].get("exchange", "okx")
     try:
-        df = dp.fetch(market, symbol, timeframe)
+        df = dp.fetch(market, symbol, timeframe, exchange=exchange)
     except Exception as e:
         print(f"[WARN] {key} 抓資料失敗: {e}")
         return
@@ -88,7 +89,7 @@ def process_symbol(market, symbol, timeframe, cfg, state):
     mtf_lines = []
     for mtf_tf in cfg["mtf"]["timeframes"]:
         try:
-            mtf_df = dp.fetch(market, symbol, mtf_tf)
+            mtf_df = dp.fetch(market, symbol, mtf_tf, exchange=exchange)
             trend = rc.mtf_trend(mtf_df.iloc[:-1], cfg["mtf"]["fast_len"], cfg["mtf"]["slow_len"])
         except Exception as e:
             print(f"[WARN] {key} 抓 MTF({mtf_tf}) 失敗: {e}")

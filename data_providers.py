@@ -1,6 +1,7 @@
 """
 資料來源抽象層：
-- crypto  -> ccxt (Binance 現貨)
+- crypto  -> ccxt (預設 OKX 現貨；Binance 會擋掉 GitHub Actions 所在機房的 IP，回傳451，
+  實測在 Actions 上會失敗，本機測試才看得到資料，所以改用不會被擋的交易所)
 - us_stocks / forex -> yfinance
 
 統一回傳格式: DataFrame，index 是時間(tz-aware)，欄位小寫 open/high/low/close/volume。
@@ -41,8 +42,10 @@ def _resample_ohlc(df: pd.DataFrame, rule: str) -> pd.DataFrame:
     return out.dropna()
 
 
-def fetch_crypto(symbol: str, timeframe: str, limit: int = 300) -> pd.DataFrame:
-    ex = ccxt.binance()
+def fetch_crypto(symbol: str, timeframe: str, exchange: str = "okx", limit: int = 300) -> pd.DataFrame:
+    if not hasattr(ccxt, exchange):
+        raise ValueError(f"ccxt 沒有這個交易所: {exchange}")
+    ex = getattr(ccxt, exchange)()
     ex.enableRateLimit = True
     raw = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(raw, columns=["ts", "open", "high", "low", "close", "volume"])
@@ -68,7 +71,7 @@ def fetch_yf(symbol: str, timeframe: str) -> pd.DataFrame:
     return _normalize_yf(raw)
 
 
-def fetch(market: str, symbol: str, timeframe: str) -> pd.DataFrame:
+def fetch(market: str, symbol: str, timeframe: str, exchange: str = "okx") -> pd.DataFrame:
     if market == "crypto":
-        return fetch_crypto(symbol, timeframe)
+        return fetch_crypto(symbol, timeframe, exchange=exchange)
     return fetch_yf(symbol, timeframe)

@@ -8,7 +8,7 @@ telegram:
 markets:
   crypto:
     enabled: true
-    source: binance        # 走 ccxt 抓 Binance 現貨資料
+    exchange: okx           # ccxt交易所代號；Binance會擋GitHub Actions機房IP(451)，改用不會擋的OKX
     symbols:
       - "BTC/USDT"
       - "ETH/USDT"
