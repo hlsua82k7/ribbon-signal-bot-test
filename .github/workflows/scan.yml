@@ -31,6 +31,6 @@ jobs:
         run: |
           git config user.name "ribbon-scanner-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add state.json
+          git add state.json subscriptions.json telegram_offset.json
           git diff --cached --quiet || git commit -m "chore: update scan state [skip ci]"
           git push

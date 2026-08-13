@@ -20,8 +20,11 @@ for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
+import os
+
 import data_providers as dp
 import ribbon_core as rc
+import telegram_commands as tc
 import telegram_notify as tg
 
 BASE_DIR = Path(__file__).parent
@@ -109,11 +112,28 @@ def main():
     cfg = load_config()
     state = load_state()
 
+    if cfg["telegram"]["enabled"]:
+        try:
+            tc.process_commands(cfg)
+        except Exception as e:
+            print(f"[WARN] 處理 Telegram 指令失敗: {e}")
+
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if chat_id:
+        markets_filter, tfs_filter = tc.get_effective_filter(chat_id, cfg)
+        print(f"目前訂閱範圍 -> 市場: {markets_filter}  週期: {tfs_filter}")
+    else:
+        # 本機測試沒設 chat_id 時，預設掃全部(跟原本行為一致)
+        markets_filter = [m for m, mcfg in cfg["markets"].items() if mcfg.get("enabled")]
+        tfs_filter = cfg["signal_timeframes"]
+
     for market, mcfg in cfg["markets"].items():
-        if not mcfg.get("enabled"):
+        if not mcfg.get("enabled") or market not in markets_filter:
             continue
         for symbol in mcfg["symbols"]:
             for tf in cfg["signal_timeframes"]:
+                if tf not in tfs_filter:
+                    continue
                 process_symbol(market, symbol, tf, cfg, state)
 
     save_state(state)

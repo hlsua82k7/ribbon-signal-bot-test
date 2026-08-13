@@ -11,8 +11,27 @@
 - **多週期趨勢共振**：對應原指標的 T(60)/T(240)/T(D)/T(W) 面板，用 EMA快線/慢線判斷各週期 Bull/Bear
 - **停損停利**：ATR 倍數停損 + 分層 ATR 停利，跟原指標的風險群組參數一致
 - **不重複通知**：每個「商品+週期」記住上一次通知過的K棒時間，同一根不會重複發
+- **可以直接在 Telegram 設定想看的市場/週期**：不用改 config.yaml，傳指令給機器人就好(見下方「用 Telegram 指令調整訂閱」)
 
 **這是訊號通知系統，不會下真單、不做回測績效保證，僅供你自己交易時參考。**
+
+## 用 Telegram 指令調整訂閱
+
+直接傳訊息給你的機器人即可，排程下次執行時會自動讀取並套用：
+
+| 指令 | 說明 |
+|---|---|
+| `/markets crypto,us_stocks,forex` | 只看指定市場(可用值: `crypto` `us_stocks` `forex`) |
+| `/markets all` | 恢復成 config.yaml 裡 enabled 的全部市場 |
+| `/timeframes 1h,4h` | 只看指定週期(可用值: `15m` `1h` `4h` `1d` `1w`) |
+| `/timeframes all` | 恢復成 config.yaml 的 `signal_timeframes` 全部週期 |
+| `/status` | 查看目前訂閱設定 |
+| `/help` | 顯示指令說明 |
+
+設定存在 repo 的 `subscriptions.json`，套用範圍**只影響你收到的通知**，不影響 `config.yaml` 本身；
+如果你想真的改變預設商品清單(例如新增/移除某支股票)，還是要改 `config.yaml`。
+
+⚠️ 指令不是即時生效——排程每15分鐘才跑一次，你傳指令後最多要等到下次排程執行才會套用、才會收到確認回覆。
 
 ## 檔案結構
 
@@ -20,9 +39,12 @@
 config.yaml           # 市場/商品/週期/風險參數，全部設定都在這裡改
 ribbon_core.py         # 核心運算(EMA、ATR、交叉偵測、停損停利、訊息格式)
 data_providers.py      # 抓資料(ccxt / yfinance)
-telegram_notify.py      # 發送 Telegram
+telegram_notify.py      # 發送/接收 Telegram(sendMessage / getUpdates)
+telegram_commands.py    # 解析 /markets /timeframes 等指令、管理訂閱設定
 scanner.py              # 主程式，跑一次做一次完整掃描
 state.json               # 記錄每個商品+週期最後通知過的K棒(掃描時自動更新)
+subscriptions.json       # 每個 chat_id 的市場/週期訂閱設定(掃描時自動更新)
+telegram_offset.json     # 記錄處理到第幾則Telegram訊息，避免重複處理同一則指令
 requirements.txt
 .github/workflows/scan.yml   # GitHub Actions 排程設定(每15分鐘跑一次)
 .env.example             # 本機測試用的環境變數範例
