@@ -3,16 +3,27 @@ name: Ribbon MTF Signal Scanner
 on:
   schedule:
     - cron: "*/15 * * * *"   # 每15分鐘跑一次(GitHub排程實際觸發常會晚個幾分鐘，屬正常現象)
-  workflow_dispatch: {}       # 允許在 GitHub 網頁上手動觸發，方便測試
+  workflow_dispatch:          # 允許在網頁上手動觸發；tg_chat_id/tg_text兩個輸入是給
+    inputs:                   # Cloudflare Worker即時轉發Telegram訊息用的，手動測試留空即可
+      tg_chat_id:
+        description: "(Webhook用)訊息來源chat_id"
+        required: false
+        default: ""
+      tg_text:
+        description: "(Webhook用)訊息內容"
+        required: false
+        default: ""
 
 permissions:
   contents: write            # 需要能把 state.json 的變更 commit 回 repo
 
 # 避免兩次執行重疊時，第二個的 git push 因為 remote 已經被第一個推過而被拒絕(fetch first)。
-# 這是「掃當下最新狀態」的工作，舊的排隊中執行沒有保留價值，改成cancel-in-progress:true，
-# 新的觸發(不管是排程還是手動)直接取消還在排隊/執行中的舊的，避免舊執行卡住佇列讓新的排程一直等。
+# 一般排程/手動掃描用共用的 ribbon-scanner-state 群組、cancel-in-progress:true：
+# 這是「掃當下最新狀態」的工作，舊的排隊中執行沒有保留價值，新觸發直接取消舊的排隊/執行中的。
+# 但Webhook觸發的「即時指令」用run_id當獨立群組(等於不跟任何人共用)：
+# 這種執行很快、次數可能很密集，不該被拿去跟完整市場掃描互相取消，也不該卡住排程佇列。
 concurrency:
-  group: ribbon-scanner-state
+  group: ${{ (github.event.inputs.tg_chat_id || '') != '' && format('ribbon-scanner-command-{0}', github.run_id) || 'ribbon-scanner-state' }}
   cancel-in-progress: true
 
 jobs:
@@ -32,6 +43,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TG_CHAT_ID_INPUT: ${{ github.event.inputs.tg_chat_id }}
+          TG_TEXT_INPUT: ${{ github.event.inputs.tg_text }}
         run: python scanner.py
 
       - name: Commit and push updated state

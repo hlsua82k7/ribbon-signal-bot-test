@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .env
+
+# Cloudflare Worker(wrangler)本機產物，不該進repo；密鑰一律用`wrangler secret put`，不是這個檔案
+cloudflare-webhook/node_modules/
+cloudflare-webhook/.wrangler/
+cloudflare-webhook/.dev.vars

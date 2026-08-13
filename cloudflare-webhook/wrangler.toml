@@ -1,0 +1,12 @@
+name = "ribbon-signal-bot-webhook"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# 不是密鑰的一般設定值，可以直接寫在這裡(這個檔案會被commit到repo)。
+# 密鑰(GITHUB_TOKEN / TG_WEBHOOK_SECRET)要用 `wrangler secret put` 個別設定，
+# 不要寫在這裡——那樣就會被commit進repo，變成任何人都看得到。
+[vars]
+GH_OWNER = "hlsua82k7"
+GH_REPO = "ribbon-signal-bot-test"
+GH_WORKFLOW_FILE = "scan.yml"
+GH_BRANCH = "main"

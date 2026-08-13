@@ -112,7 +112,18 @@ def main():
     cfg = load_config()
     state = load_state()
 
-    if cfg["telegram"]["enabled"]:
+    # Webhook模式下，Cloudflare Worker收到Telegram訊息會立刻觸發這個workflow一次，
+    # 並把訊息內容透過這兩個環境變數帶進來；這種情況只處理這一則指令、不做完整市場掃描
+    # (快、省資源)，也不能呼叫process_commands()裡的getUpdates(webhook模式下會被Telegram擋掉)。
+    tg_chat_id = os.environ.get("TG_CHAT_ID_INPUT", "").strip()
+    tg_text = os.environ.get("TG_TEXT_INPUT", "").strip()
+    if tg_chat_id and tg_text:
+        print(f"[即時指令模式] chat_id={tg_chat_id} text={tg_text!r}")
+        tc.handle_single_command(cfg, tg_chat_id, tg_text)
+        return
+
+    command_mode = cfg["telegram"].get("command_mode", "polling")
+    if cfg["telegram"]["enabled"] and command_mode == "polling":
         try:
             tc.process_commands(cfg)
         except Exception as e:

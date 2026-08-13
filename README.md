@@ -31,7 +31,103 @@
 設定存在 repo 的 `subscriptions.json`，套用範圍**只影響你收到的通知**，不影響 `config.yaml` 本身；
 如果你想真的改變預設商品清單(例如新增/移除某支股票)，還是要改 `config.yaml`。
 
-⚠️ 指令不是即時生效——排程每15分鐘才跑一次，你傳指令後最多要等到下次排程執行才會套用、才會收到確認回覆。
+⚠️ **預設(polling模式)指令不是即時生效**——排程每15分鐘才跑一次，你傳指令後最多要等到下次排程執行
+才會套用、才會收到確認回覆。想要幾秒內就生效，見下面「即時指令(Webhook模式)」。
+
+## 即時指令(Webhook模式，選用)
+
+預設的 polling 模式最多要等15分鐘，如果想要「傳指令後幾秒內就生效」，需要多部署一個免費的
+**Cloudflare Worker** 當「即時轉發器」：Telegram 一收到你的訊息就會立刻通知這個 Worker，
+Worker 馬上叫 GitHub Actions 觸發一次，只處理這一則指令(不做完整市場掃描，很快)。
+完整市場掃描完全不受影響，還是照原本排程每15分鐘跑一次。
+
+程式碼在 `cloudflare-webhook/` 資料夾，步驟：
+
+### 1. 準備 Cloudflare 帳號
+
+沒有的話先到 [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up) 免費註冊(不用信用卡)。
+
+### 2. 建立 GitHub Personal Access Token
+
+到 GitHub **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+Generate new token**：
+- **Repository access**: 只選這個 repo(`ribbon-signal-bot-test`)
+- **Permissions**: `Actions` 設成 **Read and write**，其他都不用開
+- 設個到期日(例如1年)，到期前記得回來重新產生一組
+
+產生後複製起來，等一下第4步要用——這是敏感金鑰，**不要貼到 config.yaml 或任何會commit的檔案裡**。
+
+### 3. 登入 Cloudflare CLI
+
+```bash
+cd cloudflare-webhook
+npx wrangler login
+```
+
+會跳出瀏覽器要你登入 Cloudflare 帳號並授權，在瀏覽器裡完成就好。
+
+### 4. 設定 Worker 的密鑰
+
+```bash
+npx wrangler secret put GITHUB_TOKEN
+```
+貼上第2步產生的 GitHub Token。
+
+```bash
+npx wrangler secret put TG_WEBHOOK_SECRET
+```
+貼上這組隨機字串(用來驗證請求真的是Telegram送來的，不是隨便誰打這個網址)：
+
+```
+vuxxh46-BhOfgkvHIgzgWmeCu9ChGU5d01BNN9sim_0
+```
+
+(這組是幫你先產生好的，你也可以自己換一組任意長字串，只要記得跟第6步用的是同一組)
+
+### 5. 部署 Worker
+
+```bash
+npx wrangler deploy
+```
+
+成功後會印出一個網址，長得像：
+```
+https://ribbon-signal-bot-webhook.<你的subdomain>.workers.dev
+```
+複製起來，下一步要用。
+
+### 6. 告訴 Telegram 把訊息送到這個 Worker
+
+瀏覽器打開這個網址(把 `<TOKEN>`、`<WORKER網址>`、`<SECRET>` 換成你的值)：
+
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=<WORKER網址>&secret_token=<SECRET>
+```
+
+看到 `"ok":true` 就代表設定成功。
+
+### 7. 把 command_mode 切換成 webhook
+
+打開 `config.yaml`，把：
+```yaml
+telegram:
+  command_mode: polling
+```
+改成：
+```yaml
+telegram:
+  command_mode: webhook
+```
+`git add config.yaml && git commit -m "切換成webhook即時指令" && git push`
+
+### 8. 測試
+
+傳 `/status` 給機器人，應該幾秒內就會收到回覆(GitHub Actions 頁面會多一次很快結束的執行紀錄)。
+
+### 想改回 polling 模式？
+
+1. 瀏覽器打開 `https://api.telegram.org/bot<TOKEN>/deleteWebhook` 取消 Telegram 端的 webhook
+2. `config.yaml` 的 `command_mode` 改回 `polling`，commit、push
 
 ## 檔案結構
 
