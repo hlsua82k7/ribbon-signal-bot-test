@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write            # 需要能把 state.json 的變更 commit 回 repo
 
+# 避免兩次執行重疊時，第二個的 git push 因為 remote 已經被第一個推過而被拒絕(fetch first)。
+# cancel-in-progress: false 代表用排隊而不是取消，確保每次掃描都有真的跑完，不會漏訊號。
+concurrency:
+  group: ribbon-scanner-state
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -27,10 +33,31 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scanner.py
 
-      - name: Commit updated state
+      - name: Commit and push updated state
         run: |
           git config user.name "ribbon-scanner-bot"
           git config user.email "actions@users.noreply.github.com"
           git add state.json subscriptions.json telegram_offset.json
-          git diff --cached --quiet || git commit -m "chore: update scan state [skip ci]"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "狀態沒有變化，不用commit"
+            exit 0
+          fi
+          git commit -m "chore: update scan state [skip ci]"
+
+          # push 被拒絕(通常是跟另一次執行的commit撞到)就重抓最新版rebase後重試，最多5次
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push被拒絕，重試第 $i 次..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "rebase失敗，放棄這次的狀態更新(下次執行還是會重新算)"
+              git rebase --abort
+              exit 0
+            fi
+            sleep $((RANDOM % 5 + 1))
+          done
+          echo "重試5次後仍push失敗"
+          exit 1
