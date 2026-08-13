@@ -73,7 +73,9 @@ def _format_status(markets, timeframes):
 def process_commands(cfg):
     """讀取自上次以來的新訊息、處理指令、更新訂閱設定並回覆使用者。"""
     offset = _load_json(OFFSET_PATH, {"offset": 0}).get("offset", 0)
+    print(f"[TG指令] 目前offset={offset}，開始查詢新訊息...")
     updates = tg.get_updates(offset)
+    print(f"[TG指令] 拿到 {len(updates)} 筆更新")
     if not updates:
         return
 
@@ -84,7 +86,9 @@ def process_commands(cfg):
         max_update_id = max(max_update_id, upd["update_id"])
         msg = upd.get("message") or upd.get("edited_message")
         if not msg or "text" not in msg:
+            print(f"[TG指令] update_id={upd['update_id']} 不是文字訊息，略過: {upd}")
             continue
+        print(f"[TG指令] 收到來自 chat_id={msg['chat']['id']} 的訊息: {msg['text']!r}")
 
         chat_id = str(msg["chat"]["id"])
         text = msg["text"].strip()
@@ -136,7 +140,10 @@ def process_commands(cfg):
             markets, timeframes = get_effective_filter(chat_id, cfg)
             tg.send_message_to(chat_id, _format_status(markets, timeframes))
 
-        # 其他不認得的文字/指令直接忽略，不回覆(避免群組裡雜訊)
+        else:
+            # 其他不認得的文字/指令直接忽略，不回覆(避免群組裡雜訊)，但log裡留紀錄方便排查
+            print(f"[TG指令] 不認得的指令，略過: {text!r}")
 
     save_subscriptions(subs)
     _save_json(OFFSET_PATH, {"offset": max_update_id + 1})
+    print(f"[TG指令] 處理完畢，offset更新為 {max_update_id + 1}")
