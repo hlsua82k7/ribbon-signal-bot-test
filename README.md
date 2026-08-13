@@ -1,0 +1,106 @@
+# Ribbon MTF Signal Scanner
+
+把你的 TradingView 指標「Ribbon MTF Signal (Alpha-Algo Style)」的 EMA Ribbon 進場訊號邏輯
+搬到 Python，跑在 GitHub Actions 上做多市場、多商品、多週期掃描，訊號出現就發 Telegram 通知。
+
+## 這套系統做什麼
+
+- **訊號邏輯**：EMA1 x EMA6 交叉(對應原指標的 longSig/shortSig)，只認已收盤的K棒
+- **市場**：加密貨幣(Binance)、美股、外匯(yfinance)，各自可獨立開關、自訂商品清單
+- **週期**：可自選要在哪些週期上判斷訊號(15m/1h/4h/1d/1w)
+- **多週期趨勢共振**：對應原指標的 T(60)/T(240)/T(D)/T(W) 面板，用 EMA快線/慢線判斷各週期 Bull/Bear
+- **停損停利**：ATR 倍數停損 + 分層 ATR 停利，跟原指標的風險群組參數一致
+- **不重複通知**：每個「商品+週期」記住上一次通知過的K棒時間，同一根不會重複發
+
+**這是訊號通知系統，不會下真單、不做回測績效保證，僅供你自己交易時參考。**
+
+## 檔案結構
+
+```
+config.yaml           # 市場/商品/週期/風險參數，全部設定都在這裡改
+ribbon_core.py         # 核心運算(EMA、ATR、交叉偵測、停損停利、訊息格式)
+data_providers.py      # 抓資料(ccxt / yfinance)
+telegram_notify.py      # 發送 Telegram
+scanner.py              # 主程式，跑一次做一次完整掃描
+state.json               # 記錄每個商品+週期最後通知過的K棒(掃描時自動更新)
+requirements.txt
+.github/workflows/scan.yml   # GitHub Actions 排程設定(每15分鐘跑一次)
+.env.example             # 本機測試用的環境變數範例
+```
+
+## 部署步驟(GitHub Actions，電腦關機也會繼續跑)
+
+### 1. 建立 GitHub Repository
+
+去 https://github.com/new 建一個新 repo(建議設成 **Public**，Actions 執行時間完全免費不限額；
+設 Private 的話免費額度是每月2000分鐘，這套系統一天跑96次、大概還是夠用，但保守起見公開較安心)。
+
+repo 裡不會有任何密鑰(Token/Chat ID 都用 GitHub Secrets 管理，不會進到程式碼)，
+只有交易邏輯設定和訊號紀錄，公開沒有安全疑慮。
+
+### 2. 把這個資料夾推上去
+
+在 `C:\Users\user\ribbon_signal_bot` 這個資料夾底下:
+
+```bash
+git init
+git add .
+git commit -m "init: ribbon mtf signal scanner"
+git branch -M main
+git remote add origin https://github.com/<你的帳號>/<repo名稱>.git
+git push -u origin main
+```
+
+### 3. 設定 Telegram Secrets
+
+Repo 頁面 -> **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**，新增兩筆：
+
+| Name | Value |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | 你的 Bot Token |
+| `TELEGRAM_CHAT_ID` | 你的 Chat ID |
+
+### 4. 啟用 Actions 並手動測試一次
+
+Repo 頁面 -> **Actions** 分頁 -> 如果跳出提示按 **I understand my workflows, go ahead and enable them**。
+點左側 **Ribbon MTF Signal Scanner** -> 右上 **Run workflow** -> 手動觸發一次，
+看 log 有沒有正常抓到資料、有訊號時 Telegram 有沒有收到。
+
+之後就會照 `.github/workflows/scan.yml` 裡的 `cron: "*/15 * * * *"` 每15分鐘自動跑，
+不需要你電腦開著。
+
+### ⚠️ GitHub Actions 排程的已知限制
+
+- **60天沒有 push/commit 的話，GitHub 會自動停用排程**，需要你回來手動 Run workflow 一次重新啟用。
+  建議每隔一段時間(例如調整 config.yaml 時)順手 commit 一下。
+- 排程觸發時間**不保證準時**，尖峰時段常會晚個幾分鐘，屬 GitHub 免費排程的正常現象。
+- 免費方案沒有「保證執行」的 SLA，如果你要更即時、更穩定，之後可以考慮換成雲端小主機常駐執行。
+
+## 調整設定
+
+打開 `config.yaml`：
+
+- `markets.<market>.enabled` — 開關某個市場
+- `markets.<market>.symbols` — 增減要掃描的商品(加密貨幣用 `BTC/USDT` 格式，美股用代號如 `AAPL`，
+  外匯用 Yahoo 格式如 `EURUSD=X`)
+- `signal_timeframes` — 增減要判斷訊號的週期
+- `risk` / `atr_health` / `ribbon.ema_lengths` — 對應原 Pine 指標裡的同名參數
+
+改完直接 `git add . && git commit -m "調整設定" && git push`，下次排程就會用新設定跑。
+
+## 本機測試(選用)
+
+```bash
+pip install -r requirements.txt
+copy .env.example .env   # 編輯 .env 填入你的 Token/Chat ID
+python scanner.py
+```
+
+## 目前已知的簡化之處(先讓你有底)
+
+- 美股/外匯資料來自 yfinance 免費源，盤中通常有15-20分鐘延遲；`4h` 週期是用 `1h` 資料
+  resample 出來的，不是原生4h K棒，跟你在TradingView上看到的4h收盤時間可能有些微落差。
+- ATR 健康區間(`atr_health`)的預設值是原指標針對單一資產調的，不同市場/週期的合理範圍
+  可能差很多，建議先跑一陣子觀察 log 裡的 ATR% 再調整。
+- 這套系統只做「訊號通知」，沒有像你另一套 `paper_trading` 系統一樣做資金曲線/勝率模擬，
+  如果之後想要，可以把 `paper_trading_tick.py` 的部位追蹤邏輯搬過來接上。

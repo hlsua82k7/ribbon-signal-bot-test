@@ -1,0 +1,68 @@
+# Ribbon MTF Signal Scanner - 設定檔
+# 這份設定對應你原本的 Pine Script 指標「Ribbon MTF Signal (Alpha-Algo Style)」，
+# 把 EMA Ribbon 進場訊號 + 多週期趨勢共振 + ATR 停損停利，改成可以離線掃描多市場、多商品的版本。
+
+telegram:
+  enabled: true  # 設 false 時只會印在 log 不會真的傳送(本機測試用)
+
+markets:
+  crypto:
+    enabled: true
+    source: binance        # 走 ccxt 抓 Binance 現貨資料
+    symbols:
+      - "BTC/USDT"
+      - "ETH/USDT"
+      - "SOL/USDT"
+
+  us_stocks:
+    enabled: true
+    source: yfinance
+    symbols:
+      - "AAPL"
+      - "MSFT"
+      - "NVDA"
+      - "TSLA"
+      - "SPY"
+      - "QQQ"
+
+  forex:
+    enabled: true
+    source: yfinance
+    symbols:
+      - "EURUSD=X"
+      - "USDJPY=X"
+      - "GBPUSD=X"
+      - "AUDUSD=X"
+
+# 主訊號週期(EMA1 x EMA6 交叉判斷用)：把你想開的週期留著、不想要的刪掉或註解掉即可。
+# 可選值: "15m", "1h", "4h", "1d", "1w"
+# 注意: 美股/外匯的 "4h" 是用 1h 資料 resample 出來的(Yahoo沒有原生4h)，
+#      "15m" 資料 Yahoo 只提供最近約60天，夠掃即時訊號但不能拉很長歷史。
+signal_timeframes:
+  - "1h"
+  - "4h"
+  - "1d"
+
+# EMA Ribbon 週期，對應 Pine 版 EMA1~EMA6 (預設值與原指標一致)
+ribbon:
+  ema_lengths: [5, 10, 15, 20, 25, 30]
+
+# 停損停利參數，對應 Pine 版「風險 / 停損停利」群組
+risk:
+  atr_len: 14
+  stop_mult: 1.5
+  target_step: 1.0
+  target_cnt: 6
+
+# ATR 健康區間(%)，對應 Pine 版設定；注意這組預設值是原本針對單一資產調的，
+# 股票/外匯/不同週期的正常ATR%範圍可能差很多，先觀察一陣子再自行調整。
+atr_health:
+  low_pct: 0.10
+  high_pct: 1.00
+
+# 多週期趨勢共振：用 EMA(fast) vs EMA(slow) 判斷各週期 Bull/Bear，
+# 對應 Pine 版的 60 / 240 / D / W / M 那幾欄(這裡預設只抓3個週期，避免resample失敗率疊加)
+mtf:
+  fast_len: 20
+  slow_len: 50
+  timeframes: ["4h", "1d", "1w"]

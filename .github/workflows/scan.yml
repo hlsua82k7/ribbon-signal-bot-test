@@ -1,0 +1,36 @@
+name: Ribbon MTF Signal Scanner
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # 每15分鐘跑一次(GitHub排程實際觸發常會晚個幾分鐘，屬正常現象)
+  workflow_dispatch: {}       # 允許在 GitHub 網頁上手動觸發，方便測試
+
+permissions:
+  contents: write            # 需要能把 state.json 的變更 commit 回 repo
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scanner.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "ribbon-scanner-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || git commit -m "chore: update scan state [skip ci]"
+          git push
