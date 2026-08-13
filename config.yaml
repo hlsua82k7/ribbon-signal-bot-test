@@ -34,6 +34,18 @@ markets:
       - "GBPUSD=X"
       - "AUDUSD=X"
 
+  tw_stocks:
+    enabled: true
+    source: yfinance
+    # 上市股票代號要加 .TW 後綴，上櫃股票加 .TWO；例如 2330.TW=台積電、0050.TW=元大台灣50
+    symbols:
+      - "2330.TW"   # 台積電
+      - "2317.TW"   # 鴻海
+      - "2454.TW"   # 聯發科
+      - "0050.TW"   # 元大台灣50
+      - "2603.TW"   # 長榮
+      - "2882.TW"   # 國泰金
+
 # 主訊號週期(EMA1 x EMA6 交叉判斷用)：把你想開的週期留著、不想要的刪掉或註解掉即可。
 # 可選值: "15m", "1h", "4h", "1d", "1w"
 # 注意: 美股/外匯的 "4h" 是用 1h 資料 resample 出來的(Yahoo沒有原生4h)，

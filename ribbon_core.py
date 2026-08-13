@@ -12,7 +12,7 @@ Ribbon MTF Signal - 純運算邏輯 (無 I/O)
 
 import pandas as pd
 
-MARKET_ZH = {"crypto": "加密貨幣", "us_stocks": "美股", "forex": "外匯"}
+MARKET_ZH = {"crypto": "加密貨幣", "us_stocks": "美股", "forex": "外匯", "tw_stocks": "台股"}
 
 
 def ema(series: pd.Series, length: int) -> pd.Series:

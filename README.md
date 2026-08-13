@@ -6,7 +6,7 @@
 ## 這套系統做什麼
 
 - **訊號邏輯**：EMA1 x EMA6 交叉(對應原指標的 longSig/shortSig)，只認已收盤的K棒
-- **市場**：加密貨幣(Binance)、美股、外匯(yfinance)，各自可獨立開關、自訂商品清單
+- **市場**：加密貨幣(OKX)、美股、外匯、台股(yfinance)，各自可獨立開關、自訂商品清單
 - **週期**：可自選要在哪些週期上判斷訊號(15m/1h/4h/1d/1w)
 - **多週期趨勢共振**：對應原指標的 T(60)/T(240)/T(D)/T(W) 面板，用 EMA快線/慢線判斷各週期 Bull/Bear
 - **停損停利**：ATR 倍數停損 + 分層 ATR 停利，跟原指標的風險群組參數一致
@@ -21,7 +21,7 @@
 
 | 指令 | 說明 |
 |---|---|
-| `/markets crypto,us_stocks,forex` | 只看指定市場(可用值: `crypto` `us_stocks` `forex`) |
+| `/markets crypto,us_stocks,forex,tw_stocks` | 只看指定市場(可用值: `crypto` `us_stocks` `forex` `tw_stocks`) |
 | `/markets all` | 恢復成 config.yaml 裡 enabled 的全部市場 |
 | `/timeframes 1h,4h` | 只看指定週期(可用值: `15m` `1h` `4h` `1d` `1w`) |
 | `/timeframes all` | 恢復成 config.yaml 的 `signal_timeframes` 全部週期 |
@@ -104,7 +104,7 @@ Repo 頁面 -> **Actions** 分頁 -> 如果跳出提示按 **I understand my wor
 
 - `markets.<market>.enabled` — 開關某個市場
 - `markets.<market>.symbols` — 增減要掃描的商品(加密貨幣用 `BTC/USDT` 格式，美股用代號如 `AAPL`，
-  外匯用 Yahoo 格式如 `EURUSD=X`)
+  外匯用 Yahoo 格式如 `EURUSD=X`，台股上市加 `.TW` 後綴、上櫃加 `.TWO`，例如 `2330.TW`)
 - `signal_timeframes` — 增減要判斷訊號的週期
 - `risk` / `atr_health` / `ribbon.ema_lengths` — 對應原 Pine 指標裡的同名參數
 

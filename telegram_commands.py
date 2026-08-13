@@ -3,7 +3,7 @@
 不用改 config.yaml 再 push。
 
 支援指令：
-  /markets crypto,us_stocks,forex   只看指定市場
+  /markets crypto,us_stocks,forex,tw_stocks   只看指定市場
   /markets all                      恢復成 config.yaml 裡 enabled 的全部市場
   /timeframes 1h,4h                 只看指定週期
   /timeframes all                   恢復成 config.yaml 的 signal_timeframes 全部週期
@@ -45,10 +45,7 @@ def save_subscriptions(subs):
     _save_json(SUBS_PATH, subs)
 
 
-def get_effective_filter(chat_id, cfg):
-    """回傳這個 chat_id 目前有效的 (markets清單, timeframes清單)；
-    沒特別設定過的話，就用 config.yaml 的預設值(全部enabled的市場 + 全部signal_timeframes)。"""
-    subs = load_subscriptions()
+def _effective_filter_from_subs(subs, chat_id, cfg):
     pref = subs.get(str(chat_id), {})
     all_markets = [m for m, mcfg in cfg["markets"].items() if mcfg.get("enabled")]
     all_tfs = cfg["signal_timeframes"]
@@ -57,13 +54,21 @@ def get_effective_filter(chat_id, cfg):
     return markets, timeframes
 
 
+def get_effective_filter(chat_id, cfg):
+    """回傳這個 chat_id 目前有效的 (markets清單, timeframes清單)；
+    沒特別設定過的話，就用 config.yaml 的預設值(全部enabled的市場 + 全部signal_timeframes)。
+    這個版本從硬碟重新讀 subscriptions.json，給scanner.py主流程用；process_commands()內部
+    改的是還沒存檔的subs，要用_effective_filter_from_subs()才看得到剛更新的值。"""
+    return _effective_filter_from_subs(load_subscriptions(), chat_id, cfg)
+
+
 def _format_status(markets, timeframes):
     return (
         "📋 目前訂閱設定\n"
         f"市場: {', '.join(markets) if markets else '(無)'}\n"
         f"週期: {', '.join(timeframes) if timeframes else '(無)'}\n\n"
         "指令:\n"
-        "/markets crypto,us_stocks,forex (或 /markets all)\n"
+        "/markets crypto,us_stocks,forex,tw_stocks (或 /markets all)\n"
         "/timeframes 1h,4h,1d (或 /timeframes all，可選 15m/1h/4h/1d/1w)\n"
         "/status 查看目前設定\n"
         "/help 顯示這個說明"
@@ -97,10 +102,10 @@ def process_commands(cfg):
         if text.startswith("/markets"):
             arg = text[len("/markets"):].strip()
             if not arg:
-                tg.send_message_to(chat_id, "用法: /markets crypto,us_stocks,forex 或 /markets all")
+                tg.send_message_to(chat_id, "用法: /markets crypto,us_stocks,forex,tw_stocks 或 /markets all")
             elif arg.lower() == "all":
                 pref.pop("markets", None)
-                markets, timeframes = get_effective_filter(chat_id, cfg)
+                markets, timeframes = _effective_filter_from_subs(subs, chat_id, cfg)
                 tg.send_message_to(chat_id, "✅ 已恢復成全部市場\n\n" + _format_status(markets, timeframes))
             else:
                 names = [s.strip() for s in arg.split(",") if s.strip()]
@@ -112,7 +117,7 @@ def process_commands(cfg):
                     )
                 else:
                     pref["markets"] = names
-                    markets, timeframes = get_effective_filter(chat_id, cfg)
+                    markets, timeframes = _effective_filter_from_subs(subs, chat_id, cfg)
                     tg.send_message_to(chat_id, "✅ 已更新市場訂閱\n\n" + _format_status(markets, timeframes))
 
         elif text.startswith("/timeframes"):
@@ -121,7 +126,7 @@ def process_commands(cfg):
                 tg.send_message_to(chat_id, "用法: /timeframes 1h,4h,1d 或 /timeframes all")
             elif arg.lower() == "all":
                 pref.pop("timeframes", None)
-                markets, timeframes = get_effective_filter(chat_id, cfg)
+                markets, timeframes = _effective_filter_from_subs(subs, chat_id, cfg)
                 tg.send_message_to(chat_id, "✅ 已恢復成全部週期\n\n" + _format_status(markets, timeframes))
             else:
                 tfs = [s.strip() for s in arg.split(",") if s.strip()]
@@ -133,11 +138,11 @@ def process_commands(cfg):
                     )
                 else:
                     pref["timeframes"] = tfs
-                    markets, timeframes = get_effective_filter(chat_id, cfg)
+                    markets, timeframes = _effective_filter_from_subs(subs, chat_id, cfg)
                     tg.send_message_to(chat_id, "✅ 已更新週期訂閱\n\n" + _format_status(markets, timeframes))
 
         elif text.startswith("/status") or text.startswith("/help") or text.startswith("/start"):
-            markets, timeframes = get_effective_filter(chat_id, cfg)
+            markets, timeframes = _effective_filter_from_subs(subs, chat_id, cfg)
             tg.send_message_to(chat_id, _format_status(markets, timeframes))
 
         else:
