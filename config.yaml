@@ -8,7 +8,7 @@ telegram:
   #   polling - 排程每次執行時呼叫getUpdates檢查新訊息，最多要等到下次排程(15分鐘)才生效(預設)
   #   webhook - 設定Cloudflare Worker即時轉發後改這個，指令傳送後幾秒內就會生效(見README「即時指令」章節)
   # 兩者互斥：一旦跟Telegram設定了webhook，getUpdates就會被擋掉，這裡沒改成webhook的話polling會一直失敗。
-  command_mode: polling
+  command_mode: webhook
 
 markets:
   crypto:
